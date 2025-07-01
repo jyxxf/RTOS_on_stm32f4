@@ -145,19 +145,21 @@ void UsageFault_Handler(void)
 void SVC_Handler(void)
 {
   /* USER CODE BEGIN SVCall_IRQn 0 */
-  extern int task1_stack[100];
-  void LED_PF9(void);
-  task1_stack[8] = 0xfffffffd; // r14
-  task1_stack[9] = (int)&task1_stack[92];
-  task1_stack[98] = (int)LED_PF9; // pc
-  task1_stack[99] = 0x1000000; // xPSR
 
-  extern int task2_stack[100];
+  extern int task1_stack[STACK_SIZE];
+  void LED_PF9(void);
+  
+  task1_stack[STACK_SIZE - 12] = (int)LED_PF9; // pc
+  task1_stack[STACK_SIZE - 11] = 0x1000000; // xPSR
+  task1_stack[STACK_SIZE - 2] = 0xfffffffd; // r14
+  task1_stack[STACK_SIZE - 1] = (int)&task1_stack[STACK_SIZE - 18]; // psp
+
+  extern int task2_stack[STACK_SIZE];
   void LED_PF10(void);
-  task2_stack[8] = 0xfffffffd;
-  task2_stack[9] = (int)&task2_stack[92];
-  task2_stack[98] = (int)LED_PF10;
-  task2_stack[99] = 0x1000000;
+  task2_stack[STACK_SIZE - 12] = (int)LED_PF10;
+  task2_stack[STACK_SIZE - 11] = 0x1000000;
+  task2_stack[STACK_SIZE - 2] = 0xfffffffd;
+  task2_stack[STACK_SIZE - 1] = (int)&task2_stack[STACK_SIZE - 18];
 
   running_flag = 1;
   while (1)
@@ -167,12 +169,11 @@ void SVC_Handler(void)
           "ldr r0,[r0] \n"
           "msr msp,r0"); // 销毁主栈区
 
-    __asm("ldr r0,=task1_stack_top");
+    __asm("ldr r0,=task1_psp_r4_r11_r14_save_pointer");
     __asm("ldr r0,[r0]");
-    __asm("msr psp,r0"); // 默认栈顶地址为[92]
-
-    __asm("ldr r0,=task1_stack \n"
-          "ldmia r0!,{r4-r11,r14} \n");
+    __asm("ldmia r0!,{r4-r11,r14}");
+    __asm("ldr r0,[r0]");
+    __asm("msr psp, r0"); // psp存在最后
     __asm("bx r14");
     // 自动出栈R0 R1 R2 R3 R12 LR PC xPSR
   }
@@ -206,20 +207,21 @@ void PendSV_Handler(void)
   static int jump_flag = 0;
   if (jump_flag == jump_to_task2) // 跳到task2
   {
-	 // stmdb 先-再保存   同入栈
+	 // stmdb 先-再保存到前面   同入栈
    // mrs 后面的复制到前面
    // str 前面的存到后面
    // ldr 后面的写到前面
-   // ldmia 先保存后+   同出栈
+   // ldmia 先保存到后面再+   同出栈
     jump_flag = jump_to_task1;
-    __asm("ldr r0,= task1_psp_r4_r11_r14_save_pointer"); // 保存stack1 psp_r4_r11_r14
+    __asm("ldr r0,= task1_psp_r4_r11_r14_save_pointer");
     __asm("ldr r0,[r0]");
+    __asm("stmia r0!,{r4-r11,r14}");
     __asm("mrs r1,psp");
     __asm("str r1,[r0]");
-    __asm("stmdb r0!,{r4-r11,r14}");
 
-    __asm("ldr r0,=task2_stack \n" // 释放stack2 r4_r11_r14
-          "ldmia r0!,{r4-r11,r14} \n");
+    __asm("ldr r0,=task2_psp_r4_r11_r14_save_pointer \n");
+    __asm("ldr r0,[r0]");
+    __asm("ldmia r0!,{r4-r11,r14} \n");
     __asm("ldr r0,[r0]");
     __asm("msr psp,r0"); // 载入psp
     __asm("bx r14");
@@ -229,12 +231,13 @@ void PendSV_Handler(void)
 	  jump_flag = jump_to_task2;
     __asm("ldr r0,= task2_psp_r4_r11_r14_save_pointer");
     __asm("ldr r0,[r0]");
-    __asm("mrs r1,psp"); // 保存psp
+    __asm("stmia r0!,{r4-r11,r14}");
+    __asm("mrs r1,psp");
     __asm("str r1,[r0]");
-    __asm("stmdb r0!,{r4-r11,r14}"); // 继续保存r4-r11 r14
 
-    __asm("ldr r0,=task1_stack \n" // 释放stack1 r4_r11_r14
-          "ldmia r0!,{r4-r11,r14} \n");
+    __asm("ldr r0,=task1_psp_r4_r11_r14_save_pointer \n");
+    __asm("ldr r0,[r0]");
+    __asm("ldmia r0!,{r4-r11,r14} \n");
     __asm("ldr r0,[r0]");
     __asm("msr psp,r0"); // 载入psp
     __asm("bx r14");

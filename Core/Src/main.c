@@ -179,9 +179,9 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-int task1_stack[100];
-int *task1_stack_top = &task1_stack[92];
-int *task1_psp_r4_r11_r14_save_pointer = &task1_stack[9];
+int task1_stack[STACK_SIZE];
+// int *task1_stack_top = &task1_stack[92];
+int *task1_psp_r4_r11_r14_save_pointer = &task1_stack[STACK_SIZE - 10];
 void LED_PF9(void)
 {
 	int temp[2]={0};
@@ -196,8 +196,8 @@ void LED_PF9(void)
 	}
 }
 
-int task2_stack[100];
-int *task2_psp_r4_r11_r14_save_pointer = &task2_stack[9];
+int task2_stack[STACK_SIZE];
+int *task2_psp_r4_r11_r14_save_pointer = &task2_stack[STACK_SIZE - 10];
 void LED_PF10(void)
 {
 	int temp[2]={0};
