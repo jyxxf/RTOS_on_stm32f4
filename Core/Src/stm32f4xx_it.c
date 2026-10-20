@@ -150,8 +150,8 @@ void SVC_Handler(void)
   void LED_PF9(void);
   
   task1_stack[STACK_SIZE - 12] = (int)LED_PF9; // pc
-  task1_stack[STACK_SIZE - 11] = 0x1000000; // xPSR
-  task1_stack[STACK_SIZE - 2] = 0xfffffffd; // r14
+  task1_stack[STACK_SIZE - 11] = 0x1000000; // xPSR的T bit设置为1表示thumb指令集
+  task1_stack[STACK_SIZE - 2] = 0xfffffffd; // r14 异常返回至线程模式
   task1_stack[STACK_SIZE - 1] = (int)&task1_stack[STACK_SIZE - 18]; // psp
 
   extern int task2_stack[STACK_SIZE];
@@ -164,9 +164,9 @@ void SVC_Handler(void)
   running_flag = 1;
   while (1)
   {
-    __asm("ldr r0,=0xe000ed08 \n"
-          "ldr r0,[r0] \n"
-          "ldr r0,[r0] \n"
+    __asm("ldr r0,=0xe000ed08 \n" // 向量表偏移寄存器地址 起始就是SCB->VTOR
+          "ldr r0,[r0] \n" // 得到向量表首个元素（栈顶地址）地址
+          "ldr r0,[r0] \n" // 得到栈顶地址
           "msr msp,r0"); // 销毁主栈区
 
     __asm("ldr r0,=task1_psp_r4_r11_r14_save_pointer");
@@ -174,7 +174,7 @@ void SVC_Handler(void)
     __asm("ldmia r0!,{r4-r11,r14}");
     __asm("ldr r0,[r0]");
     __asm("msr psp, r0"); // psp存在最后
-    __asm("bx r14");
+    __asm("bx r14"); // 切换到psp
     // 自动出栈R0 R1 R2 R3 R12 LR PC xPSR
   }
   /* USER CODE END SVCall_IRQn 0 */
